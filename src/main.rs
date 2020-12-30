@@ -1,6 +1,5 @@
 fn main() {
-    println!("{:?}", day1::get_part1());
-    println!("{:?}", day1::get_part2());
+    println!("{}", day2::part1(include_str!("data\\day2-input.txt")))
 }
 
-mod day1;
+mod day2;
