@@ -48,9 +48,6 @@ impl<'a> Policy<'a> {
     fn password(&self) -> &'a str {
         &self.source[self.password_index..]
     }
-    fn is_valid<T: Validation>(&self) -> bool {
-        T::is_valid(self)
-    }
 }
 
 pub trait Validation {
@@ -91,6 +88,12 @@ mod tests {
     const EXAMPLE: &str = "1-3 a: abcde
 1-3 b: cdefg
 2-9 c: ccccccccc";
+
+    impl Policy<'_> {
+        fn is_valid<T: Validation>(&self) -> bool {
+            T::is_valid(self)
+        }
+    }
     #[test]
     fn parses_ok() {
         assert_eq!(
