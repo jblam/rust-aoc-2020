@@ -14,7 +14,7 @@ pub fn part1(s: &str) -> usize {
         .collect::<Result<Vec<_>, _>>()
         .unwrap()
         .into_iter()
-        .filter(Policy::is_valid)
+        .filter(PartOne::is_valid)
         .count()
 }
 
@@ -48,19 +48,27 @@ impl<'a> Policy<'a> {
     fn password(&self) -> &'a str {
         &self.source[self.password_index..]
     }
-    fn is_valid(&self) -> bool {
-        let count = self
+}
+
+trait Validation {
+    fn is_valid(policy: &Policy) -> bool;
+}
+struct PartOne {}
+
+impl Validation for PartOne {
+    fn is_valid(policy: &Policy) -> bool {
+        let count = policy
             .password()
             .chars()
-            .filter(|c| c == &self.control)
+            .filter(|c| c == &policy.control)
             .count();
-        count >= self.lower && count <= self.upper
+        count >= policy.lower && count <= policy.upper
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Policy, part1};
+    use super::{part1, Policy};
     const GOOD_POLICY: &str = "1-3 a: aaa";
     #[test]
     fn parses_ok() {
