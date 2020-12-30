@@ -1,6 +1,6 @@
 use anyhow::{anyhow, bail, Result};
 #[derive(Debug, PartialEq)]
-struct Policy<'a> {
+pub struct Policy<'a> {
     source: &'a str,
     lower: usize,
     upper: usize,
@@ -8,13 +8,13 @@ struct Policy<'a> {
     password_index: usize,
 }
 
-pub fn part1(s: &str) -> usize {
+pub fn evaluate<T: Validation>(s: &str) -> usize {
     s.lines()
         .map(Policy::parse)
         .collect::<Result<Vec<_>, _>>()
         .unwrap()
         .into_iter()
-        .filter(PartOne::is_valid)
+        .filter(T::is_valid)
         .count()
 }
 
@@ -48,12 +48,16 @@ impl<'a> Policy<'a> {
     fn password(&self) -> &'a str {
         &self.source[self.password_index..]
     }
+    fn is_valid<T: Validation>(&self) -> bool {
+        T::is_valid(self)
+    }
 }
 
-trait Validation {
+pub trait Validation {
     fn is_valid(policy: &Policy) -> bool;
 }
-struct PartOne {}
+pub struct PartOne {}
+pub struct PartTwo {}
 
 impl Validation for PartOne {
     fn is_valid(policy: &Policy) -> bool {
@@ -65,11 +69,28 @@ impl Validation for PartOne {
         count >= policy.lower && count <= policy.upper
     }
 }
+impl Validation for PartTwo {
+    fn is_valid(policy: &Policy) -> bool {
+        (policy.control
+            == policy.password()[..=policy.upper - 1]
+                .chars()
+                .last()
+                .unwrap())
+            ^ (policy.control
+                == policy.password()[policy.lower - 1..]
+                    .chars()
+                    .next()
+                    .unwrap())
+    }
+}
 
 #[cfg(test)]
 mod tests {
-    use super::{part1, Policy};
+    use super::{evaluate, PartOne, PartTwo, Policy, Validation};
     const GOOD_POLICY: &str = "1-3 a: aaa";
+    const EXAMPLE: &str = "1-3 a: abcde
+1-3 b: cdefg
+2-9 c: ccccccccc";
     #[test]
     fn parses_ok() {
         assert_eq!(
@@ -89,32 +110,37 @@ mod tests {
     }
     #[test]
     fn good_policy_is_valid() {
-        assert!(Policy::parse(GOOD_POLICY).unwrap().is_valid())
+        assert!(Policy::parse(GOOD_POLICY).unwrap().is_valid::<PartOne>())
     }
     #[test]
     fn bad_policy_is_not_valid() {
-        assert!(!Policy::parse("1-3 a: bbb").unwrap().is_valid())
+        assert!(!Policy::parse("1-3 a: bbb").unwrap().is_valid::<PartOne>())
     }
     #[test]
     fn example_parses_expected_validity() {
-        let example = "1-3 a: abcde
-1-3 b: cdefg
-2-9 c: ccccccccc";
-        let results = example
+        let results = EXAMPLE
             .lines()
             .map(Policy::parse)
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
         assert_eq!(
             vec![true, false, true],
-            results.iter().map(Policy::is_valid).collect::<Vec<_>>()
+            results.iter().map(PartOne::is_valid).collect::<Vec<_>>()
         )
     }
     #[test]
     fn example_is_ok() {
-        let example = "1-3 a: abcde
-1-3 b: cdefg
-2-9 c: ccccccccc";
-        assert_eq!(2, part1(example))
+        assert_eq!(2, evaluate::<PartOne>(EXAMPLE))
+    }
+
+    #[test]
+    fn second_example_parses_expected() {
+        let results = EXAMPLE
+            .lines()
+            .map(Policy::parse)
+            .map(|r| r.map(|v| PartTwo::is_valid(&v)))
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(vec![true, false, false], results)
     }
 }
