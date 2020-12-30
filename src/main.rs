@@ -1,3 +1,5 @@
 fn main() {
-    println!("Hello, world!");
+    println!("{:?}", day1::get_part1());
 }
+
+mod day1;

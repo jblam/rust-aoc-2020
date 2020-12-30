@@ -1,6 +1,10 @@
 use std::num::ParseIntError;
 
-pub fn compute(s: &str) -> Result<Option<i64>, ParseIntError> {
+pub fn get_part1() -> Result<Option<i64>, ParseIntError> {
+    compute(include_str!("data\\day1-input.txt"))
+}
+
+fn compute(s: &str) -> Result<Option<i64>, ParseIntError> {
     find_pair(s, 2020).map(|o| o.map(|(u, v)| u as i64 * v as i64))
 }
 
