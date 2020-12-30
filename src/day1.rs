@@ -1,14 +1,17 @@
 use std::num::ParseIntError;
 
 pub fn get_part1() -> Result<Option<i64>, ParseIntError> {
-    compute(include_str!("data\\day1-input.txt"))
+    compute(include_str!("data\\day1-input.txt"), 2020, find_pair)
+}
+pub fn get_part2() -> Result<Option<i64>, ParseIntError> {
+    compute(include_str!("data\\day1-input.txt"), 2020, find_triplet)
 }
 
-fn compute(s: &str) -> Result<Option<i64>, ParseIntError> {
-    find_pair(s, 2020).map(|o| o.map(|(u, v)| u as i64 * v as i64))
+fn compute(s: &str, sum: i32, f: impl FnOnce(&str, i32) -> Result<Option<Vec<i32>>, ParseIntError>) -> Result<Option<i64>, ParseIntError> {
+    f(s, sum).map(|o| o.map(|vec| vec.iter().fold(1i64, |u, v| u * *v as i64)))
 }
 
-fn find_pair(s: &str, sum: i32) -> Result<Option<(i32, i32)>, ParseIntError> {
+fn find_pair(s: &str, sum: i32) -> Result<Option<Vec<i32>>, ParseIntError> {
     let vec: Result<Vec<_>, _> = s.lines().map(|l| l.parse::<i32>()).collect();
     let vec = vec?;
     if vec.len() < 2 {
@@ -18,7 +21,27 @@ fn find_pair(s: &str, sum: i32) -> Result<Option<(i32, i32)>, ParseIntError> {
         let rest = &vec[idx..];
         for m in rest {
             if m + n == sum {
-                return Ok(Some((*n, *m)));
+                return Ok(Some(vec!(*n, *m)));
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn find_triplet(s: &str, sum: i32) -> Result<Option<Vec<i32>>, ParseIntError> {
+    let vec: Result<Vec<_>, _> = s.lines().map(|l| l.parse::<i32>()).collect();
+    let vec = vec?;
+    if vec.len() < 3 {
+        return Ok(None);
+    }
+    for (m_idx, m) in vec.iter().enumerate() {
+        let r1 = &vec[m_idx..];
+        for (n_idx, n) in r1.iter().enumerate() {
+            let r2 = &vec[n_idx..];
+            for o in r2 {
+                if m + n + o == sum {
+                    return Ok(Some(vec!(*n, *m, *o)));
+                }
             }
         }
     }
@@ -49,14 +72,20 @@ mod tests {
     }
     #[test]
     fn solution_when_sum() {
-        assert_eq!((1, 2), yup(find_pair("1\r\n2", 3)));
+        assert_eq!(vec!(1, 2), yup(find_pair("1\r\n2", 3)));
     }
     #[test]
     fn finds_example() {
-        assert_eq!((1721, 299), yup(find_pair(EXAMLPE_INPUT, 2020)));
+        assert_eq!(vec!(1721, 299), yup(find_pair(EXAMLPE_INPUT, 2020)));
     }
     #[test]
     fn computes_example() {
-        assert_eq!(514579, yup(compute(EXAMLPE_INPUT)))
+        assert_eq!(514579, yup(compute(EXAMLPE_INPUT, 2020, find_pair)));
+    }
+    #[test]
+    fn finds_part2_example() {
+        let mut val = yup(find_triplet(EXAMLPE_INPUT, 2020));
+        val.sort();
+        assert_eq!(vec!(366, 675, 979), val);
     }
 }
