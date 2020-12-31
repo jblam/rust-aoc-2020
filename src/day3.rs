@@ -1,5 +1,11 @@
 use std::ops::Index;
 
+pub fn evaluate(s: &str) -> usize {
+    get_path(&TravelMap::parse(s))
+        .filter(|t| **t == Tile::Tree)
+        .count()
+}
+
 fn get_path(map: &TravelMap) -> impl Iterator<Item = &Tile> {
     std::iter::successors(Some(Vec2 { x: 0, y: 0 }), |prev| {
         Some(Vec2 {
@@ -135,6 +141,8 @@ mod tests {
     fn gets_example_path() {
         const T: Tile = Tile::Tree;
         const E: Tile = Tile::Empty;
-        assert!(vec![E, E, T, E, T, T, E, T, T, T, T,].iter().eq(get_path(&TravelMap::parse(EXAMPLE))))
+        assert!(vec![E, E, T, E, T, T, E, T, T, T, T,]
+            .iter()
+            .eq(get_path(&TravelMap::parse(EXAMPLE))))
     }
 }
