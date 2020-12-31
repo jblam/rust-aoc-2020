@@ -1,5 +1,16 @@
 use std::ops::Index;
 
+fn get_path(map: &TravelMap) -> impl Iterator<Item = &Tile> {
+    std::iter::successors(Some(Vec2 { x: 0, y: 0 }), |prev| {
+        Some(Vec2 {
+            x: prev.x + 3,
+            y: prev.y + 1,
+        })
+    })
+    .take_while(move |v| v.y < map.trees.len() as i32)
+    .map(move |v| map.index(v))
+}
+
 struct Vec2 {
     x: i32,
     y: i32,
@@ -88,16 +99,42 @@ mod tests {
     #[test]
     fn can_index() {
         let m = TravelMap::parse(EXAMPLE);
-        assert_eq!(Tile::Empty, m[(0, 0).into()], "Indexing an empty cell failed");
+        assert_eq!(
+            Tile::Empty,
+            m[(0, 0).into()],
+            "Indexing an empty cell failed"
+        );
         assert_eq!(Tile::Tree, m[(2, 0).into()], "Indexing a tree cell failed");
-        assert_eq!(Tile::Empty, m[(0, -1).into()], "Indexing negative rows failed");
+        assert_eq!(
+            Tile::Empty,
+            m[(0, -1).into()],
+            "Indexing negative rows failed"
+        );
         assert_eq!(
             Tile::Empty,
             m[(0, 11).into()],
             "Indexing rows past the end the map failed"
         );
-        assert_eq!(Tile::Tree, m[(0, 1).into()], "Indexing a nonzero row failed");
-        assert_eq!(Tile::Tree, m[(11, 1).into()], "Indexing high col index failed to wrap");
-        assert_eq!(Tile::Tree, m[(-11, 1).into()], "Indexing negative col index failed to wrap");
+        assert_eq!(
+            Tile::Tree,
+            m[(0, 1).into()],
+            "Indexing a nonzero row failed"
+        );
+        assert_eq!(
+            Tile::Tree,
+            m[(11, 1).into()],
+            "Indexing high col index failed to wrap"
+        );
+        assert_eq!(
+            Tile::Tree,
+            m[(-11, 1).into()],
+            "Indexing negative col index failed to wrap"
+        );
+    }
+    #[test]
+    fn gets_example_path() {
+        const T: Tile = Tile::Tree;
+        const E: Tile = Tile::Empty;
+        assert!(vec![E, E, T, E, T, T, E, T, T, T, T,].iter().eq(get_path(&TravelMap::parse(EXAMPLE))))
     }
 }
