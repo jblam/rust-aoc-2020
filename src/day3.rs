@@ -37,7 +37,6 @@ enum Tile {
     Tree,
 }
 
-
 impl Index<Vec2> for TravelMap {
     type Output = Tile;
 
@@ -46,7 +45,11 @@ impl Index<Vec2> for TravelMap {
             &Tile::Empty
         } else {
             let col = index.x % self.width as i32;
-            let col = if col < 0 { col + self.width as i32 } else { col } as usize;
+            let col = if col < 0 {
+                col + self.width as i32
+            } else {
+                col
+            } as usize;
             self.trees[index.y as usize]
                 .iter()
                 .find(|(tree_col, _)| col == *tree_col)
@@ -74,6 +77,27 @@ mod tests {
         let m = TravelMap::parse(EXAMPLE);
         assert_eq!(11, m.width);
         assert_eq!(11, m.trees.len());
-        assert_eq!([0usize, 4, 8].iter().map(|i| (*i, Tile::Tree)).collect::<Vec<_>>(), m.trees[1])
+        assert_eq!(
+            [0usize, 4, 8]
+                .iter()
+                .map(|i| (*i, Tile::Tree))
+                .collect::<Vec<_>>(),
+            m.trees[1]
+        )
+    }
+    #[test]
+    fn can_index() {
+        let m = TravelMap::parse(EXAMPLE);
+        assert_eq!(Tile::Empty, m[(0, 0).into()], "Indexing an empty cell failed");
+        assert_eq!(Tile::Tree, m[(2, 0).into()], "Indexing a tree cell failed");
+        assert_eq!(Tile::Empty, m[(0, -1).into()], "Indexing negative rows failed");
+        assert_eq!(
+            Tile::Empty,
+            m[(0, 11).into()],
+            "Indexing rows past the end the map failed"
+        );
+        assert_eq!(Tile::Tree, m[(0, 1).into()], "Indexing a nonzero row failed");
+        assert_eq!(Tile::Tree, m[(11, 1).into()], "Indexing high col index failed to wrap");
+        assert_eq!(Tile::Tree, m[(-11, 1).into()], "Indexing negative col index failed to wrap");
     }
 }
