@@ -1,20 +1,25 @@
-use std::ops::Index;
+use std::ops::{Add, Index};
 
-pub fn evaluate(s: &str) -> usize {
-    get_path(&TravelMap::parse(s))
+pub fn part1(s: &str) -> usize {
+    count_trees(s, (3, 1).into())
+}
+pub fn part2(s: &str) -> usize {
+    [(1i32, 1), (3, 1), (5, 1), (7, 1), (1, 2)]
+        .iter()
+        .map(|t| count_trees(s, (*t).into()))
+        .fold(1, |prev, cur| prev * cur)
+}
+
+fn count_trees(s: &str, offset: Vec2) -> usize {
+    get_path(&TravelMap::parse(s), offset.into())
         .filter(|t| **t == Tile::Tree)
         .count()
 }
 
-fn get_path(map: &TravelMap) -> impl Iterator<Item = &Tile> {
-    std::iter::successors(Some(Vec2 { x: 0, y: 0 }), |prev| {
-        Some(Vec2 {
-            x: prev.x + 3,
-            y: prev.y + 1,
-        })
-    })
-    .take_while(move |v| v.y < map.trees.len() as i32)
-    .map(move |v| map.index(v))
+fn get_path(map: &TravelMap, offset: Vec2) -> impl Iterator<Item = &Tile> {
+    std::iter::successors(Some(Vec2 { x: 0, y: 0 }), move |prev| Some(prev + &offset))
+        .take_while(move |v| v.y < map.trees.len() as i32)
+        .map(move |v| map.index(v))
 }
 
 struct Vec2 {
@@ -24,6 +29,16 @@ struct Vec2 {
 impl From<(i32, i32)> for Vec2 {
     fn from(t: (i32, i32)) -> Self {
         Vec2 { x: t.0, y: t.1 }
+    }
+}
+impl Add for &Vec2 {
+    type Output = Vec2;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Vec2 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
     }
 }
 struct TravelMap {
@@ -143,6 +158,15 @@ mod tests {
         const E: Tile = Tile::Empty;
         assert!(vec![E, E, T, E, T, T, E, T, T, T, T,]
             .iter()
-            .eq(get_path(&TravelMap::parse(EXAMPLE))))
+            .eq(get_path(&TravelMap::parse(EXAMPLE), (3, 1).into())))
+    }
+
+    #[test]
+    fn gets_part_1_example() {
+        assert_eq!(7, part1(EXAMPLE))
+    }
+    #[test]
+    fn gets_part_2_example() {
+        assert_eq!(336, part2(EXAMPLE))
     }
 }
