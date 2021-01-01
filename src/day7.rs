@@ -6,36 +6,36 @@ use multimap::MultiMap;
 pub fn part1(s: &str) -> usize {
     let map = reverse(s.lines().map(|l| Rule::parse(l).unwrap()));
     let mut output = HashSet::new();
-    let initial = Rc::new(Descriptor("shiny gold"));
+    let initial = (1, Rc::new(Descriptor("shiny gold")));
     output = append(&map, initial.clone(), output);
     fn append<'a>(
-        source: &'a MultiMap<Descriptor<'a>, Rc<Descriptor<'a>>>,
-        key: Rc<Descriptor<'a>>,
+        source: &'a MultiMap<Descriptor<'a>, (usize, Rc<Descriptor<'a>>)>,
+        key: (usize, Rc<Descriptor<'a>>),
         result: HashSet<Rc<Descriptor<'a>>>,
     ) -> HashSet<Rc<Descriptor<'a>>> {
         let mut r = result;
-        if r.insert(key.clone()) {
-            if let Some(items) = source.get_vec(&key) {
-                for item in items {
-                    r = append(source, item.clone(), r);
+        if r.insert(key.1.clone()) {
+            if let Some(items) = source.get_vec(&key.1) {
+                for (qty, item) in items {
+                    r = append(source, (*qty, item.clone()), r);
                 }
             }
         }
         r
     }
-    output.remove(initial.as_ref());
+    output.remove(initial.1.as_ref());
     output.len()
 }
 pub fn part2(_: &str) {}
 
 fn reverse<'a>(
     rules: impl Iterator<Item = Rule<'a>>,
-) -> MultiMap<Descriptor<'a>, Rc<Descriptor<'a>>> {
+) -> MultiMap<Descriptor<'a>, (usize, Rc<Descriptor<'a>>)> {
     let mut multimap = MultiMap::new();
     for rule in rules {
         let owner = Rc::new(rule.owner);
-        for (_, content) in rule.contents {
-            multimap.insert(content, owner.clone());
+        for (qty, content) in rule.contents {
+            multimap.insert(content, (qty, owner.clone()));
         }
     }
     multimap
@@ -160,7 +160,7 @@ dotted black bags contain no other bags.";
         assert_eq!(2, owners.len());
         assert!(owners
             .iter()
-            .any(|x| x.as_ref() == &Descriptor("bright white")));
+            .any(|x| x.1.as_ref() == &Descriptor("bright white")));
     }
 
     #[test]
