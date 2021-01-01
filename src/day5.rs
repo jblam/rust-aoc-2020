@@ -12,7 +12,29 @@ pub(crate) fn part1(s: &str) -> usize {
         .max()
         .expect("No lines")
 }
-pub(crate) fn part2(_: &str) {}
+pub(crate) fn part2(s: &str) -> usize {
+    let mut seats = s
+        .lines()
+        .map(|l| {
+            l.parse::<Position>()
+                .with_context(|| format!("Could not parse {}", l))
+                .unwrap()
+                .get_id()
+        })
+        .collect::<Vec<_>>();
+    seats.sort();
+    let mut cmp = seats[0];
+    for &p in seats[1..].into_iter() {
+        if p != cmp + 1 {
+            if p != cmp + 2 {
+                panic!("Expected exactly one missing item in sequence")
+            }
+            return p - 1;
+        }
+        cmp = p;
+    }
+    panic!("Failed to find a missing sequence")
+}
 
 struct Position([u8; 10]);
 
