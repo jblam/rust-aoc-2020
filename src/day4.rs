@@ -1,12 +1,12 @@
-use anyhow::{bail, Error, Result};
+use anyhow::{bail, Context, Error, Result};
 use std::{
     collections::HashSet,
     mem::{discriminant, Discriminant},
     str::FromStr,
 };
 
-pub fn part1(_: &str) {
-    todo!()
+pub fn part1(s: &'static str) -> usize {
+    parse(s, "\n\n").filter(|r| r.as_ref().unwrap().is_valid()).count()
 }
 pub fn part2(_: &str) {
     todo!()
@@ -16,17 +16,18 @@ pub fn part2(_: &str) {
 enum Length {
     Centimetre(i32),
     Inch(i32),
+    Unknown(i32),
 }
 #[derive(Debug, PartialEq, Eq)]
 enum Field {
-    BirthYear(i32),
-    IssueYear(i32),
-    ExpirationYear(i32),
+    BirthYear(i64),
+    IssueYear(i64),
+    ExpirationYear(i64),
     Height(Length),
     HairColour(String),
     EyeColour(String),
-    PassportId(i32),
-    CountryId(i32),
+    PassportId(String),
+    CountryId(i64),
 }
 
 #[derive(Debug)]
@@ -41,7 +42,7 @@ impl FromStr for Length {
         } else if s.ends_with("in") {
             Ok(Length::Inch(s[..s.len() - 2].parse()?))
         } else {
-            bail!("Neither inches nor centimetres")
+            Ok(Length::Unknown(s.parse()?))
         }
     }
 }
@@ -53,15 +54,16 @@ impl FromStr for Field {
         if tokens.len() != 2 {
             bail!("Not colon-delimited")
         }
+        let ctx = || format!("Failed to parse {}:{}", tokens[0], tokens[1]);
         match tokens[0] {
-            "byr" => Ok(Field::BirthYear(tokens[1].parse()?)),
-            "iyr" => Ok(Field::IssueYear(tokens[1].parse()?)),
-            "eyr" => Ok(Field::ExpirationYear(tokens[1].parse()?)),
-            "hgt" => Ok(Field::Height(tokens[1].parse()?)),
+            "byr" => Ok(Field::BirthYear(tokens[1].parse().with_context(ctx)?)),
+            "iyr" => Ok(Field::IssueYear(tokens[1].parse().with_context(ctx)?)),
+            "eyr" => Ok(Field::ExpirationYear(tokens[1].parse().with_context(ctx)?)),
+            "hgt" => Ok(Field::Height(tokens[1].parse().with_context(ctx)?)),
             "hcl" => Ok(Field::HairColour(tokens[1].to_owned())),
             "ecl" => Ok(Field::EyeColour(tokens[1].to_owned())),
-            "pid" => Ok(Field::PassportId(tokens[1].parse()?)),
-            "cid" => Ok(Field::CountryId(tokens[1].parse()?)),
+            "pid" => Ok(Field::PassportId(tokens[1].to_owned())),
+            "cid" => Ok(Field::CountryId(tokens[1].parse().with_context(ctx)?)),
             _ => bail!("unrecognised field {}", tokens[0]),
         }
     }
@@ -175,7 +177,7 @@ iyr:2011 ecl:brn hgt:59in";
             Field::Height(Length::Centimetre(0)),
             Field::HairColour(Default::default()),
             Field::EyeColour(Default::default()),
-            Field::PassportId(0),
+            Field::PassportId(Default::default()),
         ])
     }
     #[test]
@@ -193,5 +195,10 @@ iyr:2011 ecl:brn hgt:59in";
         let mut r = make_minimal_record();
         r.0.push(Field::BirthYear(0));
         assert!(!r.is_valid())
+    }
+
+    #[test]
+    fn validates_example_part1() {
+        assert_eq!(2, part1(EXAMPLE));
     }
 }
