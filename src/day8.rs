@@ -2,24 +2,27 @@ use super::util::split_tuple_2;
 use anyhow::{bail, Error, Result};
 use std::{collections::HashSet, str::FromStr};
 
-pub fn part1(s: &str) -> Option<State> {
+fn enumerate(s: &str) -> impl Iterator<Item = State> {
     let instructions = s
         .lines()
         .map(Instruction::from_str)
         .collect::<Result<Vec<_>>>()
         .unwrap();
 
+    let mut current = State::new();
+    std::iter::once(current).chain(std::iter::from_fn(move || {
+        if let Some(next) = current.next(&instructions) {
+            current = next;
+            Some(current)
+        } else {
+            None
+        }
+    }))
+}
+
+pub fn part1(s: &str) -> Option<State> {
     let mut states = HashSet::new();
-    let iter = {
-        let mut current = Some(State::new());
-        std::iter::from_fn(move || {
-            if let Some(actual) = current.as_ref() {
-                current = actual.next(&instructions);
-            }
-            current
-        })
-    };
-    for state in iter {
+    for state in enumerate(s) {
         if !states.insert(state.address) {
             return Some(state);
         }
@@ -28,6 +31,12 @@ pub fn part1(s: &str) -> Option<State> {
     None
 }
 pub fn part2(_: &str) {}
+
+#[derive(Debug, PartialEq)]
+enum Outcome {
+    Loop,
+    Terminate,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InstructionKind {
@@ -143,6 +152,12 @@ acc -99
 acc +1
 jmp -4
 acc +6";
-        assert_eq!(State{ address: 1, accumulator: 5 }, part1(EXAMPLE).unwrap())
+        assert_eq!(
+            State {
+                address: 1,
+                accumulator: 5
+            },
+            part1(EXAMPLE).unwrap()
+        )
     }
 }
