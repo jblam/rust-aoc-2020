@@ -1,7 +1,7 @@
 fn main() {
-    let s = include_str!("data\\day3-input.txt");
-    println!("Part 1: {} trees", day3::part1(s));
-    println!("Part 2: {} trees²", day3::part2(s));
+    let s = include_str!("data\\day4-input.txt");
+    println!("Part 1: {:?}", day4::part1(s));
+    println!("Part 2: {:?}", day4::part2(s));
 }
 
-mod day3;
+mod day4;
