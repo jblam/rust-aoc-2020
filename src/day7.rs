@@ -1,4 +1,7 @@
-use std::{collections::HashSet, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use anyhow::{bail, Context, Result};
 use multimap::MultiMap;
@@ -26,7 +29,25 @@ pub fn part1(s: &str) -> usize {
     output.remove(initial.1.as_ref());
     output.len()
 }
-pub fn part2(_: &str) {}
+pub fn part2(s: &str) -> usize {
+    fn walk<'m>(
+        map: &'m HashMap<Descriptor<'m>, Vec<(usize, Descriptor<'m>)>>,
+        m: &'m Descriptor,
+        qty: usize,
+    ) -> usize {
+        let kids = (&map[m]).iter().map(|(k_qty, k)| walk(map, k, k_qty * qty));
+        let sum = kids.sum::<usize>();
+        qty + sum
+    }
+    let forward = s.lines().map(|l| Rule::parse(l).unwrap());
+    let mut m = HashMap::new();
+    for rule in forward {
+        let _existing = m.insert(rule.owner, rule.contents);
+        debug_assert_eq!(None, _existing, "Unexpected duplicate definition");
+    }
+
+    walk(&m, &Descriptor("shiny gold"), 1) - 1
+}
 
 fn reverse<'a>(
     rules: impl Iterator<Item = Rule<'a>>,
@@ -166,5 +187,44 @@ dotted black bags contain no other bags.";
     #[test]
     fn gets_example_part1() {
         assert_eq!(4, part1(EXAMPLE))
+    }
+    #[test]
+    fn gets_single_rule_part2() {
+        assert_eq!(0, part2("shiny gold bags contain no other bags."));
+    }
+    #[test]
+    fn gets_simple_rules_part2() {
+        assert_eq!(
+            1,
+            part2(
+                "shiny gold bags contain 1 dark red bags.
+dark red bags contain no other bags."
+            )
+        );
+    }
+    #[test]
+    fn gets_multiplying_rules() {
+        assert_eq!(
+            2,
+            part2(
+                "shiny gold bags contain 2 dark red bags.
+dark red bags contain no other bags."
+            )
+        );
+    }
+    #[test]
+    fn gets_example_part2() {
+        assert_eq!(32, part2(EXAMPLE));
+    }
+    #[test]
+    fn gets_example_part2a() {
+        const EXAMPLE: &str = "shiny gold bags contain 2 dark red bags.
+dark red bags contain 2 dark orange bags.
+dark orange bags contain 2 dark yellow bags.
+dark yellow bags contain 2 dark green bags.
+dark green bags contain 2 dark blue bags.
+dark blue bags contain 2 dark violet bags.
+dark violet bags contain no other bags.";
+        assert_eq!(126, part2(EXAMPLE));
     }
 }
