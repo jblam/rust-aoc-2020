@@ -1,9 +1,31 @@
-use std::rc::Rc;
+use std::{collections::HashSet, rc::Rc};
 
 use anyhow::{bail, Context, Result};
 use multimap::MultiMap;
 
-pub fn part1(_: &str) {}
+pub fn part1(s: &str) -> usize {
+    let map = reverse(s.lines().map(|l| Rule::parse(l).unwrap()));
+    let mut output = HashSet::new();
+    let initial = Rc::new(Descriptor("shiny gold"));
+    output = append(&map, initial.clone(), output);
+    fn append<'a>(
+        source: &'a MultiMap<Descriptor<'a>, Rc<Descriptor<'a>>>,
+        key: Rc<Descriptor<'a>>,
+        result: HashSet<Rc<Descriptor<'a>>>,
+    ) -> HashSet<Rc<Descriptor<'a>>> {
+        let mut r = result;
+        if r.insert(key.clone()) {
+            if let Some(items) = source.get_vec(&key) {
+                for item in items {
+                    r = append(source, item.clone(), r);
+                }
+            }
+        }
+        r
+    }
+    output.remove(initial.as_ref());
+    output.len()
+}
 pub fn part2(_: &str) {}
 
 fn reverse<'a>(
@@ -136,6 +158,13 @@ dotted black bags contain no other bags.";
         let map = reverse(EXAMPLE.lines().map(|l| Rule::parse(l).unwrap()));
         let owners = map.get_vec(&Descriptor("shiny gold")).unwrap();
         assert_eq!(2, owners.len());
-        assert!(owners.iter().any(|x| x.as_ref() == &Descriptor("bright white")));
+        assert!(owners
+            .iter()
+            .any(|x| x.as_ref() == &Descriptor("bright white")));
+    }
+
+    #[test]
+    fn gets_example_part1() {
+        assert_eq!(4, part1(EXAMPLE))
     }
 }
