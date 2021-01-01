@@ -1,6 +1,6 @@
 use super::util::split_tuple_2;
 use anyhow::{bail, Error};
-use std::str::FromStr;
+use std::{ops::Index, str::FromStr};
 
 pub fn part1(_: &str) {}
 pub fn part2(_: &str) {}
@@ -15,26 +15,40 @@ enum InstructionKind {
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Instruction(InstructionKind, i32);
 
-struct State<T: Iterator<Item = Instruction>> {
-    address: usize,
+#[derive(Debug, PartialEq)]
+struct State<'a> {
+    address: i32,
     accumulator: i32,
-    history: Vec<Instruction>,
-    remaining: T,
+    instructions: &'a [Instruction],
 }
 
-impl<T: Iterator<Item = Instruction>> State<T> {
-    pub fn new(t: T) -> State<T> {
+impl<'a> State<'a> {
+    pub fn new(t: &'a [Instruction]) -> State<'a> {
         State {
-            remaining: t,
             address: 0,
             accumulator: 0,
-            history: Default::default(),
+            instructions: t,
         }
     }
-    fn parse_next(&mut self) -> Option<Instruction> {
-        if let Some(i) = self.remaining.next() {
-            self.history.push(i);
-            Some(i)
+    fn next(self) -> Option<Self> {
+        if self.address < 0 {
+            return None;
+        }
+        if let Some(Instruction(kind, val)) = self.instructions.get(self.address as usize) {
+            Some(match (kind, val) {
+                (InstructionKind::Acc, val) => State {
+                    accumulator: self.accumulator + val,
+                    ..self
+                },
+                (InstructionKind::Jmp, val) => State {
+                    address: self.address + val,
+                    ..self
+                },
+                (InstructionKind::Nop, _) => State {
+                    address: self.address + 1,
+                    ..self
+                },
+            })
         } else {
             None
         }
@@ -69,7 +83,32 @@ mod tests {
 
     #[test]
     fn can_parse() {
-        assert_eq!(Instruction(InstructionKind::Acc, 4), "acc +4".parse().unwrap());
-        assert_eq!(Instruction(InstructionKind::Jmp, -4), "jmp -4".parse().unwrap());
+        assert_eq!(
+            Instruction(InstructionKind::Acc, 4),
+            "acc +4".parse().unwrap()
+        );
+        assert_eq!(
+            Instruction(InstructionKind::Jmp, -4),
+            "jmp -4".parse().unwrap()
+        );
+    }
+    #[test]
+    fn can_terminate() {
+        let instructions: [Instruction; 0] = Default::default();
+        let init = State::new(&instructions);
+        assert_eq!(None, init.next())
+    }
+    #[test]
+    fn can_next() {
+        let instructions = [Instruction(InstructionKind::Nop, 0)];
+        let init = State::new(&instructions);
+        assert_eq!(
+            State {
+                address: 1,
+                accumulator: 0,
+                instructions: &instructions
+            },
+            init.next().unwrap()
+        )
     }
 }
