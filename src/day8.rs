@@ -2,38 +2,74 @@ use super::util::split_tuple_2;
 use anyhow::{bail, Error, Result};
 use std::{collections::HashSet, str::FromStr};
 
-fn enumerate(s: &str) -> impl Iterator<Item = State> {
-    let instructions = s
-        .lines()
+fn parse_instructions(s: &str) -> Vec<Instruction> {
+    s.lines()
         .map(Instruction::from_str)
         .collect::<Result<Vec<_>>>()
-        .unwrap();
-
+        .unwrap()
+}
+fn get_outcome(slice: &[Instruction]) -> (Outcome, State) {
     let mut current = State::new();
-    std::iter::once(current).chain(std::iter::from_fn(move || {
-        if let Some(next) = current.next(&instructions) {
+    let iter = std::iter::once(current).chain(std::iter::from_fn(|| {
+        if let Some(next) = current.next(slice) {
             current = next;
             Some(current)
         } else {
             None
         }
-    }))
+    }));
+    let mut visited = HashSet::new();
+    for state in iter {
+        if !visited.insert(state.address) {
+            return (Outcome::Loop, state);
+        }
+        debug_assert!(visited.len() < 10000);
+    }
+    (Outcome::Terminate, current)
 }
 
-pub fn part1(s: &str) -> Option<State> {
-    let mut states = HashSet::new();
-    for state in enumerate(s) {
-        if !states.insert(state.address) {
-            return Some(state);
+pub fn part1(s: &str) -> (Outcome, State) {
+    get_outcome(&parse_instructions(s))
+}
+pub fn part2(s: &str) -> Option<State> {
+    let mut instructions = parse_instructions(s);
+    fn get_flippables(
+        i: &[Instruction],
+    ) -> impl Iterator<Item = (usize, Instruction, Instruction)> + '_ {
+        i.iter()
+            .clone()
+            .enumerate()
+            .filter_map(|(idx, &Instruction(kind, val))| match kind {
+                InstructionKind::Jmp => Some((
+                    idx,
+                    Instruction(kind, val),
+                    Instruction(InstructionKind::Nop, val),
+                )),
+                InstructionKind::Nop => Some((
+                    idx,
+                    Instruction(kind, val),
+                    Instruction(InstructionKind::Jmp, val),
+                )),
+                _ => None,
+            })
+    }
+    let flippables = {
+        let vecref = &instructions;
+        get_flippables(vecref).collect::<Vec<_>>()
+    };
+    for (idx, original, flipped) in flippables {
+        instructions[idx] = flipped;
+        if let (Outcome::Terminate, winner) = get_outcome(&instructions) {
+            return Some(winner);
         }
-        debug_assert!(states.len() < 1000)
+        instructions[idx] = original;
     }
     None
 }
-pub fn part2(_: &str) {}
 
+#[allow(dead_code)]
 #[derive(Debug, PartialEq)]
-enum Outcome {
+pub enum Outcome {
     Loop,
     Terminate,
 }
@@ -141,9 +177,7 @@ mod tests {
             init.next(&instructions).unwrap()
         )
     }
-    #[test]
-    fn executes_part1() {
-        const EXAMPLE: &str = "nop +0
+    const EXAMPLE: &str = "nop +0
 acc +1
 jmp +4
 acc +3
@@ -152,12 +186,44 @@ acc -99
 acc +1
 jmp -4
 acc +6";
+    const FIXED_EXAMPLE: &str = "nop +0
+acc +1
+jmp +4
+acc +3
+jmp -3
+acc -99
+acc +1
+nop -4
+acc +6";
+    #[test]
+    fn executes_part1() {
         assert_eq!(
-            State {
-                address: 1,
-                accumulator: 5
-            },
-            part1(EXAMPLE).unwrap()
+            (
+                Outcome::Loop,
+                State {
+                    address: 1,
+                    accumulator: 5
+                }
+            ),
+            part1(EXAMPLE)
         )
+    }
+    #[test]
+    fn validates_part2_example_answer() {
+        let (outcome, _) = get_outcome(&parse_instructions(EXAMPLE));
+        assert_eq!(Outcome::Loop, outcome);
+        let (
+            fixed_outcome,
+            State {
+                accumulator: fixed_accumulator,
+                ..
+            },
+        ) = get_outcome(&parse_instructions(FIXED_EXAMPLE));
+        assert_eq!(Outcome::Terminate, fixed_outcome);
+        assert_eq!(8, fixed_accumulator);
+    }
+    #[test]
+    fn gets_part2_example() {
+        assert_eq!(part2(EXAMPLE).unwrap().accumulator, 8)
     }
 }
