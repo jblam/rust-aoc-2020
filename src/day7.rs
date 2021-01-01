@@ -1,9 +1,25 @@
-use anyhow::{bail, Result};
+use std::rc::Rc;
+
+use anyhow::{bail, Context, Result};
+use multimap::MultiMap;
 
 pub fn part1(_: &str) {}
 pub fn part2(_: &str) {}
 
-#[derive(Debug, PartialEq)]
+fn reverse<'a>(
+    rules: impl Iterator<Item = Rule<'a>>,
+) -> MultiMap<Descriptor<'a>, Rc<Descriptor<'a>>> {
+    let mut multimap = MultiMap::new();
+    for rule in rules {
+        let owner = Rc::new(rule.owner);
+        for (_, content) in rule.contents {
+            multimap.insert(content, owner.clone());
+        }
+    }
+    multimap
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
 struct Descriptor<'a>(&'a str);
 
 #[derive(Debug, PartialEq)]
@@ -47,16 +63,28 @@ impl<'a> Rule<'a> {
             bail!("Expected keyword `contain` not found");
         }
         let owner = Descriptor::parse(parts[0])?;
-        let contents = parts[1]
-            .split(", ")
-            .map(|content| {
-                if let Some((qty, descriptor)) = split_tuple_2(content, " ") {
-                    Ok((qty.parse()?, Descriptor::parse(descriptor)?))
-                } else {
-                    bail!("Couldn't parse content {}", content)
-                }
-            })
-            .collect::<Result<Vec<_>>>()?;
+        let contents = if parts[1].ends_with('.') {
+            &parts[1][..parts[1].len() - 1]
+        } else {
+            bail!("Expected trailing '.' not found in {}", parts[1])
+        };
+        let contents = if contents == "no other bags" {
+            Vec::new()
+        } else {
+            contents
+                .split(", ")
+                .map(|content| -> Result<(usize, Descriptor), anyhow::Error> {
+                    if let Some((qty, descriptor)) = split_tuple_2(content, " ") {
+                        Ok((
+                            qty.parse().with_context(|| format!("Parsing {}", qty))?,
+                            Descriptor::parse(descriptor)?,
+                        ))
+                    } else {
+                        bail!("Couldn't parse content {}", content)
+                    }
+                })
+                .collect::<Result<Vec<_>>>()?
+        };
         Ok(Rule { owner, contents })
     }
 }
@@ -89,9 +117,25 @@ mod tests {
         assert_eq!(
             Rule {
                 owner: Descriptor("owner"),
-                contents: vec![(1, Descriptor("asdf")), (2, Descriptor("jkl;"))]
+                contents: vec![(1, Descriptor("asdf")), (2, Descriptor("jkl"))]
             },
-            Rule::parse("owner bags contain 1 asdf bag, 2 jkl; bags").unwrap()
+            Rule::parse("owner bags contain 1 asdf bag, 2 jkl bags.").unwrap()
         )
+    }
+    const EXAMPLE: &str = "light red bags contain 1 bright white bag, 2 muted yellow bags.
+dark orange bags contain 3 bright white bags, 4 muted yellow bags.
+bright white bags contain 1 shiny gold bag.
+muted yellow bags contain 2 shiny gold bags, 9 faded blue bags.
+shiny gold bags contain 1 dark olive bag, 2 vibrant plum bags.
+dark olive bags contain 3 faded blue bags, 4 dotted black bags.
+vibrant plum bags contain 5 faded blue bags, 6 dotted black bags.
+faded blue bags contain no other bags.
+dotted black bags contain no other bags.";
+    #[test]
+    fn can_reverse() {
+        let map = reverse(EXAMPLE.lines().map(|l| Rule::parse(l).unwrap()));
+        let owners = map.get_vec(&Descriptor("shiny gold")).unwrap();
+        assert_eq!(2, owners.len());
+        assert!(owners.iter().any(|x| x.as_ref() == &Descriptor("bright white")));
     }
 }

@@ -7,8 +7,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee67c11feeac938fae061b232e38e0b6d94f97a9df10e6271319325ac4c56a86"
 
 [[package]]
+name = "multimap"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1255076139a83bb467426e7f8d0134968a8118844faa755985e077cf31850333"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "rust-aoc-2020"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "multimap",
 ]
+
+[[package]]
+name = "serde"
+version = "1.0.118"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06c64263859d87aa2eb554587e2d23183398d617427327cf2b3d0ed8c69e4800"
