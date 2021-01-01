@@ -1,3 +1,4 @@
+mod util;
 mod day7;
 
 fn main() {
