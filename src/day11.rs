@@ -4,7 +4,13 @@ use std::{
     fmt::{Debug, Display},
 };
 
-pub fn part1(_: &str) {}
+pub fn part1(s: &str) -> usize {
+    let mut pair = SeatMapPair::parse(s).unwrap();
+    while !pair.is_stable() {
+        pair.step();
+    }
+    pair.current().0.iter().flatten().filter(|&&s| s == SeatState::Full).count()
+}
 pub fn part2(_: &str) {}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -66,6 +72,12 @@ impl SeatMapPair {
         };
         SeatMap::step(active, next);
         self.0 += 1;
+    }
+    pub fn is_stable(&self) -> bool {
+        self.0 > 0 && self.1 == self.2
+    }
+    pub fn step_count(&self) -> usize {
+        self.0
     }
 }
 
@@ -146,8 +158,16 @@ impl Debug for SeatMap {
         write!(
             f,
             "SeatMap ({} empty, {} full)",
-            self.0.iter().flatten().filter(|&&s| s == SeatState::Empty).count(),
-            self.0.iter().flatten().filter(|&&s| s == SeatState::Full).count()
+            self.0
+                .iter()
+                .flatten()
+                .filter(|&&s| s == SeatState::Empty)
+                .count(),
+            self.0
+                .iter()
+                .flatten()
+                .filter(|&&s| s == SeatState::Full)
+                .count()
         )
     }
 }
@@ -197,5 +217,25 @@ L.LLLLL.LL";
         map.step();
         let expected = SeatMap::parse(EXAMPLE_1).unwrap();
         assert_eq!(expected, *map.current());
+    }
+    #[test]
+    fn can_find_stable_example() {
+        let mut map = SeatMapPair::parse(EXAMPLE_0).unwrap();
+        while !map.is_stable() {
+            debug_assert!(map.step_count() < 100);
+            map.step();
+        }
+        assert_eq!(6, map.step_count());
+        assert_eq!(*map.current(), SeatMap::parse("#.#L.L#.##
+#LLL#LL.L#
+L.#.L..#..
+#L##.##.L#
+#.#L.LL.LL
+#.#L#L#.##
+..L.L.....
+#L#L##L#L#
+#.LLLLLL.L
+#.#L#L#.##").unwrap());
+        assert_eq!(37, map.current().0.iter().flatten().filter(|&&s| s == SeatState::Full).count())
     }
 }
