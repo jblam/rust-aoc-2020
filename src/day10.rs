@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use multimap::MultiMap;
+
 pub fn part1(s: &str) -> i32 {
     let input = s
         .lines()
@@ -11,12 +13,13 @@ pub fn part1(s: &str) -> i32 {
     one * three
 }
 pub fn part2(s: &str) -> usize {
-    let input = s
+    let mut input = s
         .lines()
         .map(i32::from_str)
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
-    count_chains(input)
+    let edges = build_graph(&mut input);
+    walk_graph(&edges)
 }
 
 fn format_vec(input: &mut Vec<i32>) {
@@ -43,27 +46,53 @@ fn get_chain(mut input: Vec<i32>) -> (i32, i32) {
     (dict[&1], dict[&3])
 }
 
-fn count_chains(mut input: Vec<i32>) -> usize {
-    fn count_chain_parts(next: &[i32]) -> usize {
-        fn is_valid(input: i32, output: i32) -> bool {
-            output > input && (output - input) < 4
-        }
-        if let [head, tail @ ..] = next {
-            if tail.len() == 0 {
-                1
-            } else {
-                tail.iter()
-                    .enumerate()
-                    .take_while(|(_, &v)| is_valid(*head, v))
-                    .map(|(idx, _)| count_chain_parts(&tail[idx..]))
-                    .sum()
-            }
+fn build_graph(input: &mut Vec<i32>) -> Vec<(i32, i32)> {
+    fn edges(elements: &[i32]) -> impl Iterator<Item = (i32, i32)> + '_ {
+        if let [first, rest @ ..] = elements {
+            rest.iter()
+                .take_while(move |&&i| i <= *first + 3)
+                .map(move |&i| (*first, i))
         } else {
             unreachable!()
         }
     }
-    format_vec(&mut input);
-    count_chain_parts(&input)
+    format_vec(input);
+    input
+        .iter()
+        .enumerate()
+        .map(|(idx, _)| edges(&input[idx..]))
+        .flatten()
+        .collect::<Vec<_>>()
+}
+
+fn walk_graph(edges: &[(i32, i32)]) -> usize {
+    let g = {
+        let mut output = MultiMap::new();
+        for &(src, dest) in edges {
+            output.insert(src, dest)
+        }
+        output
+    };
+    let mut m = HashMap::new();
+    fn walk(src: i32, graph: &MultiMap<i32, i32>, memo: &mut HashMap<i32, usize>) -> usize {
+        let mut output = 0;
+        if let Some(destinations) = graph.get_vec(&src) {
+            for dst in destinations {
+                output += if let Some(&val) = memo.get(dst) {
+                    val
+                } else {
+                    walk(*dst, graph, memo)
+                }
+            }
+            if let Some(_) = memo.insert(src, output) {
+                panic!("Unexpectedly duplicated node {} while walking", src);
+            }
+            output
+        } else {
+            1
+        }
+    }
+    walk(0, &g, &mut m)
 }
 
 #[cfg(test)]
@@ -88,13 +117,20 @@ mod tests {
     }
 
     #[test]
-    fn counts_chain_ex1() {
-        let input = Vec::from(EXAMPLE_1);
-        assert_eq!(8, count_chains(input))
+    fn can_build_graph_1() {
+        let mut input = Vec::from(EXAMPLE_1);
+        dbg!(build_graph(&mut input));
     }
     #[test]
-    fn counts_chain_ex2() {
-        let input = Vec::from(EXAMPLE_2);
-        assert_eq!(19208, count_chains(input))
+    fn can_walk_graph_1() {
+        let mut input = Vec::from(EXAMPLE_1);
+        let edges = build_graph(&mut input);
+        assert_eq!(8, walk_graph(&edges));
+    }
+    #[test]
+    fn can_walk_graph_2() {
+        let mut input = Vec::from(EXAMPLE_2);
+        let edges = build_graph(&mut input);
+        assert_eq!(19208, walk_graph(&edges));
     }
 }
