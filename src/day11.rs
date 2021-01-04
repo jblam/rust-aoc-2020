@@ -97,7 +97,7 @@ impl SeatMapPair {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum Direction {
     North,
     NorthEast,
@@ -112,16 +112,16 @@ impl Direction {
     fn offset(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
         let (x, y) = pos;
         match self {
-            Self::North => Some((x, y + 1)),
-            Self::NorthEast => Some((x + 1, y + 1)),
-            Self::East => Some((x + 1, y)),
-            Self::SouthEast => y.checked_sub(1).and_then(|v| Some((x + 1, v))),
-            Self::South => y.checked_sub(1).and_then(|v| Some((x, v))),
-            Self::SouthWest => x
+            Self::East => Some((x, y + 1)),
+            Self::SouthEast => Some((x + 1, y + 1)),
+            Self::South => Some((x + 1, y)),
+            Self::SouthWest => y.checked_sub(1).and_then(|v| Some((x + 1, v))),
+            Self::West => y.checked_sub(1).and_then(|v| Some((x, v))),
+            Self::NorthWest => x
                 .checked_sub(1)
                 .and_then(|u| y.checked_sub(1).and_then(|v| Some((u, v)))),
-            Self::West => x.checked_sub(1).and_then(|u| Some((u, y))),
-            Self::NorthWest => x.checked_sub(1).and_then(|u| Some((u, y + 1))),
+            Self::North => x.checked_sub(1).and_then(|u| Some((u, y))),
+            Self::NorthEast => x.checked_sub(1).and_then(|u| Some((u, y + 1))),
         }
     }
 }
@@ -167,7 +167,7 @@ impl SeatMap {
     ) -> impl Iterator<Item = &SeatState> {
         std::iter::successors(Some(pos), move |&p| direction.offset(p))
             .skip(1)
-            .map(move |(x, y)| self.0.get(y).and_then(|v| v.get(x)))
+            .map(move |(row, col)| self.0.get(row).and_then(|v| v.get(col)))
             .take_while(|o| o.is_some())
             .map(|s| s.unwrap())
     }
@@ -207,7 +207,7 @@ impl SeatMap {
                             }
                         }
                         _ => unreachable!(),
-                    }
+                    };
                 }
             }
         }
@@ -394,10 +394,6 @@ L.#.L..#..
             east.copied().collect::<Vec<_>>()
         )
     }
-    #[test]
-    fn find_bug_in_step2() {
-        todo!()
-    }
 
     #[test]
     fn can_step_example_2() {
@@ -416,13 +412,7 @@ LLLLLLLLL#
         )
         .unwrap();
         pair.step(SeatMap::step_2);
-        dbg!(&pair.current().0[1]);
-        dbg!(&pair.current().0[2]);
-        dbg!(&pair.current().0[3]);
         pair.step(SeatMap::step_2);
-        dbg!(&pair.current().0[1]);
-        dbg!(&pair.current().0[2]);
-        dbg!(&pair.current().0[3]);
         assert_eq!(*pair.current(), expected);
     }
 }
