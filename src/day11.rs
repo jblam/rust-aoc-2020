@@ -7,11 +7,27 @@ use std::{
 pub fn part1(s: &str) -> usize {
     let mut pair = SeatMapPair::parse(s).unwrap();
     while !pair.is_stable() {
-        pair.step();
+        pair.step(SeatMap::step);
     }
-    pair.current().0.iter().flatten().filter(|&&s| s == SeatState::Full).count()
+    pair.current()
+        .0
+        .iter()
+        .flatten()
+        .filter(|&&s| s == SeatState::Full)
+        .count()
 }
-pub fn part2(_: &str) {}
+pub fn part2(s: &str) -> usize {
+    let mut pair = SeatMapPair::parse(s).unwrap();
+    while !pair.is_stable() {
+        pair.step(SeatMap::step_2);
+    }
+    pair.current()
+        .0
+        .iter()
+        .flatten()
+        .filter(|&&s| s == SeatState::Full)
+        .count()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum SeatState {
@@ -64,13 +80,13 @@ impl SeatMapPair {
             &self.2
         }
     }
-    pub fn step(&mut self) {
+    pub fn step(&mut self, f: impl FnOnce(&SeatMap, &mut SeatMap)) {
         let (active, next) = if self.0 % 2 == 0 {
             (&self.1, &mut self.2)
         } else {
             (&self.2, &mut self.1)
         };
-        SeatMap::step(active, next);
+        f(active, next);
         self.0 += 1;
     }
     pub fn is_stable(&self) -> bool {
@@ -80,6 +96,45 @@ impl SeatMapPair {
         self.0
     }
 }
+
+#[derive(Clone, Copy)]
+enum Direction {
+    North,
+    NorthEast,
+    East,
+    SouthEast,
+    South,
+    SouthWest,
+    West,
+    NorthWest,
+}
+impl Direction {
+    fn offset(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+        let (x, y) = pos;
+        match self {
+            Self::North => Some((x, y + 1)),
+            Self::NorthEast => Some((x + 1, y + 1)),
+            Self::East => Some((x + 1, y)),
+            Self::SouthEast => y.checked_sub(1).and_then(|v| Some((x + 1, v))),
+            Self::South => y.checked_sub(1).and_then(|v| Some((x, v))),
+            Self::SouthWest => x
+                .checked_sub(1)
+                .and_then(|u| y.checked_sub(1).and_then(|v| Some((u, v)))),
+            Self::West => x.checked_sub(1).and_then(|u| Some((u, y))),
+            Self::NorthWest => x.checked_sub(1).and_then(|u| Some((u, y + 1))),
+        }
+    }
+}
+const ALL_DIRECTIONS: &[Direction] = &[
+    Direction::North,
+    Direction::NorthEast,
+    Direction::East,
+    Direction::SouthEast,
+    Direction::South,
+    Direction::SouthWest,
+    Direction::West,
+    Direction::NorthWest,
+];
 
 impl SeatMap {
     fn parse(s: &str) -> Result<SeatMap> {
@@ -103,6 +158,59 @@ impl SeatMap {
         lines.insert(0, first);
         lines.push(last);
         Ok(SeatMap(lines))
+    }
+
+    fn cardinal_dir(
+        &self,
+        pos: (usize, usize),
+        direction: Direction,
+    ) -> impl Iterator<Item = &SeatState> {
+        std::iter::successors(Some(pos), move |&p| direction.offset(p))
+            .skip(1)
+            .map(move |(x, y)| self.0.get(y).and_then(|v| v.get(x)))
+            .take_while(|o| o.is_some())
+            .map(|s| s.unwrap())
+    }
+    fn neighbours(&self, pos: (usize, usize)) -> impl Iterator<Item = &SeatState> {
+        ALL_DIRECTIONS
+            .iter()
+            .map(move |&d| {
+                self.cardinal_dir(pos, d)
+                    .filter(|&&s| s != SeatState::Floor)
+                    .next()
+            })
+            .flatten()
+    }
+
+    fn step_2(source: &SeatMap, dest: &mut SeatMap) {
+        for row in 1..source.0.len() - 1 {
+            for col in 1..source.0[row].len() - 1 {
+                let current = source.0[row][col];
+                if current != SeatState::Floor {
+                    let neighbour_count = source
+                        .neighbours((row, col))
+                        .filter(|&&s| s == SeatState::Full)
+                        .count();
+                    dest.0[row][col] = match current {
+                        SeatState::Full => {
+                            if neighbour_count >= 5 {
+                                SeatState::Empty
+                            } else {
+                                SeatState::Full
+                            }
+                        }
+                        SeatState::Empty => {
+                            if neighbour_count == 0 {
+                                SeatState::Full
+                            } else {
+                                SeatState::Empty
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            }
+        }
     }
 
     fn step(source: &SeatMap, dest: &mut SeatMap) {
@@ -206,7 +314,7 @@ L.LLLLL.LL";
     #[test]
     fn can_step() {
         let mut map = SeatMapPair::parse(SINGLE).unwrap();
-        map.step();
+        map.step(SeatMap::step);
         let expected = SeatMap::parse("#").unwrap();
         assert_eq!(map.current().0[1][1], SeatState::Full);
         assert_eq!(expected, *map.current());
@@ -214,7 +322,7 @@ L.LLLLL.LL";
     #[test]
     fn can_step_example() {
         let mut map = SeatMapPair::parse(EXAMPLE_0).unwrap();
-        map.step();
+        map.step(SeatMap::step);
         let expected = SeatMap::parse(EXAMPLE_1).unwrap();
         assert_eq!(expected, *map.current());
     }
@@ -223,10 +331,13 @@ L.LLLLL.LL";
         let mut map = SeatMapPair::parse(EXAMPLE_0).unwrap();
         while !map.is_stable() {
             debug_assert!(map.step_count() < 100);
-            map.step();
+            map.step(SeatMap::step);
         }
         assert_eq!(6, map.step_count());
-        assert_eq!(*map.current(), SeatMap::parse("#.#L.L#.##
+        assert_eq!(
+            *map.current(),
+            SeatMap::parse(
+                "#.#L.L#.##
 #LLL#LL.L#
 L.#.L..#..
 #L##.##.L#
@@ -235,7 +346,83 @@ L.#.L..#..
 ..L.L.....
 #L#L##L#L#
 #.LLLLLL.L
-#.#L#L#.##").unwrap());
-        assert_eq!(37, map.current().0.iter().flatten().filter(|&&s| s == SeatState::Full).count())
+#.#L#L#.##"
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            37,
+            map.current()
+                .0
+                .iter()
+                .flatten()
+                .filter(|&&s| s == SeatState::Full)
+                .count()
+        )
+    }
+    #[test]
+    fn can_get_cardinal_dir() {
+        let map = SeatMap::parse(SINGLE).unwrap();
+        assert_eq!(map.neighbours((1, 1)).count(), 0);
+    }
+
+    #[test]
+    fn can_get_cardinal_dir_full() {
+        let map = SeatMap::parse(
+            "###
+###
+###",
+        )
+        .unwrap();
+        let n = map.neighbours((2, 2)).copied().collect::<Vec<_>>();
+        assert_eq!(n.len(), 8);
+        assert!(n.iter().all(|&s| s == SeatState::Full));
+    }
+
+    #[test]
+    fn cardinals_ignore_empties() {
+        let map = SeatMap::parse("L.L#").unwrap();
+        let east = map.cardinal_dir((1, 1), Direction::East);
+        // expect one "out-of-bounds" position
+        assert_eq!(
+            vec![
+                SeatState::Floor,
+                SeatState::Empty,
+                SeatState::Full,
+                SeatState::Floor
+            ],
+            east.copied().collect::<Vec<_>>()
+        )
+    }
+    #[test]
+    fn find_bug_in_step2() {
+        todo!()
+    }
+
+    #[test]
+    fn can_step_example_2() {
+        let mut pair = SeatMapPair::parse(EXAMPLE_0).unwrap();
+        let expected = SeatMap::parse(
+            "#.LL.LL.L#
+#LLLLLL.LL
+L.L.L..L..
+LLLL.LL.LL
+L.LL.LL.LL
+L.LLLLL.LL
+..L.L.....
+LLLLLLLLL#
+#.LLLLLL.L
+#.LLLLL.L#",
+        )
+        .unwrap();
+        pair.step(SeatMap::step_2);
+        dbg!(&pair.current().0[1]);
+        dbg!(&pair.current().0[2]);
+        dbg!(&pair.current().0[3]);
+        pair.step(SeatMap::step_2);
+        dbg!(&pair.current().0[1]);
+        dbg!(&pair.current().0[2]);
+        dbg!(&pair.current().0[3]);
+        assert_eq!(*pair.current(), expected);
     }
 }
