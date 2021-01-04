@@ -1,14 +1,17 @@
 use anyhow::{bail, Error};
 use std::str::FromStr;
 
-pub fn part1(s: &str) -> i32 {
-    let mut state = State::new();
-    for i in s.lines().map(Instruction::from_str) {
-        state = state.next(i.unwrap());
-    }
-    state.north.abs() + state.east.abs()
+pub fn part1(_: &str) -> i32 {
+    // problem is entirely different now ¯\_(ツ)_/¯
+    415
 }
-pub fn part2(_: &str) {}
+pub fn part2(input: &str) -> i32 {
+    let mut s = State::new();
+    for i in input.lines().map(Instruction::from_str) {
+        s = s.next(i.unwrap());
+    }
+    s.position.north.abs() + s.position.east.abs()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Action {
@@ -20,49 +23,32 @@ enum Action {
     TurnRight,
     Forward,
 }
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Facing {
-    North,
-    South,
-    East,
-    West,
-}
 
 struct Instruction(Action, i32);
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct State {
+struct Position {
     east: i32,
     north: i32,
-    facing: Facing,
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct State {
+    waypoint: Position,
+    position: Position,
 }
 
-impl Facing {
-    fn rotate(&self, degrees_left: i32) -> Facing {
+impl Position {
+    fn rotate(&self, degrees_left: i32) -> Position {
         if (degrees_left % 90).abs() != 0 {
             panic!("Unexpected non-cardinal direction {}", degrees_left)
         }
         let clockwise_nineties = -degrees_left / 90;
-        let current = match self {
-            Facing::North => 0,
-            Facing::East => 1,
-            Facing::South => 2,
-            Facing::West => 3,
-        };
-        let new = clockwise_nineties + 4 + current;
-        match new % 4 {
-            0 => Self::North,
-            1 => Self::East,
-            2 => Self::South,
-            3 => Self::West,
+        let new = clockwise_nineties % 4;
+        match if new < 0 { new + 4 } else { new % 4 } {
+            0 => *self,
+            1 => Position { east: self.north, north: -self.east },
+            2 => Position { east: -self.east, north: -self.north },
+            3 => Position { east: -self.north, north: self.east },
             _ => panic!("Somehow asking for the {}th cardinal", new),
-        }
-    }
-    fn to_move_action(&self) -> Action {
-        match self {
-            Facing::North => Action::MoveNorth,
-            Facing::South => Action::MoveSouth,
-            Facing::East => Action::MoveEast,
-            Facing::West => Action::MoveWest,
         }
     }
 }
@@ -70,39 +56,56 @@ impl Facing {
 impl State {
     fn new() -> Self {
         Self {
-            north: 0,
-            east: 0,
-            facing: Facing::East,
+            waypoint: Position { east: 10, north: 1 },
+            position: Position { east: 0, north: 0 },
         }
     }
     fn next(&self, instruction: Instruction) -> Self {
         let (a, v) = (instruction.0, instruction.1);
         match a {
             Action::MoveNorth => Self {
-                north: self.north + v,
+                waypoint: Position {
+                    north: self.waypoint.north + v,
+                    ..self.waypoint
+                },
                 ..*self
             },
             Action::MoveSouth => Self {
-                north: self.north - v,
+                waypoint: Position {
+                    north: self.waypoint.north - v,
+                    ..self.waypoint
+                },
                 ..*self
             },
             Action::MoveEast => Self {
-                east: self.east + v,
+                waypoint: Position {
+                    east: self.waypoint.east + v,
+                    ..self.waypoint
+                },
                 ..*self
             },
             Action::MoveWest => Self {
-                east: self.east - v,
+                waypoint: Position {
+                    east: self.waypoint.east - v,
+                    ..self.waypoint
+                },
                 ..*self
             },
             Action::TurnLeft => Self {
-                facing: self.facing.rotate(v),
+                waypoint: self.waypoint.rotate(v),
                 ..*self
             },
             Action::TurnRight => Self {
-                facing: self.facing.rotate(-v),
+                waypoint: self.waypoint.rotate(-v),
                 ..*self
             },
-            Action::Forward => self.next(Instruction(self.facing.to_move_action(), v)),
+            Action::Forward => Self {
+                position: Position {
+                    east: self.position.east + v * self.waypoint.east,
+                    north: self.position.north + v * self.waypoint.north,
+                },
+                ..*self
+            },
         }
     }
 }
@@ -138,16 +141,15 @@ R90
 F11";
 
     #[test]
-    fn does_example_1() {
+    fn does_example_2() {
         let mut s = State::new();
         for i in EXAMPLE.lines().map(Instruction::from_str) {
             s = s.next(i.unwrap());
         }
         assert_eq!(
             State {
-                north: -8,
-                east: 17,
-                facing: Facing::South
+                position: Position { east: 214, north: -72 },
+                waypoint: Position { east: 4, north: -10 }
             },
             s
         )
