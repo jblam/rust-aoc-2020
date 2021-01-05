@@ -6,7 +6,13 @@ use std::{
     str::{FromStr, Lines},
 };
 
-pub fn part1(_: &str) {}
+pub fn part1(s: &str) -> usize {
+    let prob: Problem = s.parse().unwrap();
+    prob.get_tickets(s)
+        .map(|t| prob.get_unvalidatable_fields(t.as_ref().unwrap()).collect::<Vec<_>>())
+        .flatten()
+        .sum()
+}
 pub fn part2(_: &str) {}
 
 #[derive(Debug)]
@@ -36,6 +42,16 @@ impl Problem {
             .skip_while(|&l| l != "nearby tickets:")
             .skip(1)
             .map(|l| l.parse())
+    }
+    fn get_unvalidatable_fields<'a>(
+        &'a self,
+        ticket: &'a Ticket,
+    ) -> impl Iterator<Item = usize> + 'a {
+        ticket
+            .0
+            .iter()
+            .filter(move |num| !self.rules.iter().any(|r| r.validates(num)))
+            .copied()
     }
 }
 
@@ -164,7 +180,14 @@ nearby tickets:
                 vec![55, 2, 20],
                 vec![38, 6, 12]
             ],
-            prob.get_tickets(EXAMPLE).map(|r| r.unwrap().0).collect::<Vec<_>>()
+            prob.get_tickets(EXAMPLE)
+                .map(|r| r.unwrap().0)
+                .collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn gets_example_1() {
+        assert_eq!(71, part1(EXAMPLE))
     }
 }
