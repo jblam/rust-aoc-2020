@@ -1,14 +1,30 @@
 use crate::util::split_tuple_2;
-use anyhow::{bail, Error, Result};
-use std::{ops::RangeInclusive, str::FromStr};
+use anyhow::{anyhow, bail, ensure, Error, Result};
+use std::{
+    ops::RangeInclusive,
+    str::{FromStr, Lines},
+};
 
 pub fn part1(_: &str) {}
 pub fn part2(_: &str) {}
+
+#[derive(Debug)]
+struct Ticket(Vec<usize>);
+struct Problem {
+    rules: Vec<Rule>,
+    my_ticket: Ticket,
+}
 
 struct Rule {
     name: String,
     range1: RangeInclusive<usize>,
     range2: RangeInclusive<usize>,
+}
+
+impl Rule {
+    fn validates(&self, input: &usize) -> bool {
+        self.range1.contains(input) || self.range2.contains(input)
+    }
 }
 
 impl FromStr for Rule {
@@ -37,6 +53,40 @@ impl FromStr for Rule {
         }
     }
 }
+impl FromStr for Problem {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        fn parse_rules(lines: &mut Lines) -> Result<Vec<Rule>> {
+            let mut vec = Vec::new();
+            while let Some(line) = lines.next() {
+                if line.len() == 0 {
+                    return Ok(vec);
+                }
+                vec.push(line.parse()?)
+            }
+            bail!("Unexpected end of file while reading rules")
+        }
+        let mut lines = s.lines();
+
+        let rules = parse_rules(&mut lines)?;
+        anyhow::ensure!(lines.next() == Some("your ticket:"));
+        let my_ticket = Ticket(
+            lines
+                .next()
+                .map(|l| {
+                    l.split(',')
+                        .map(|t| t.parse())
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .ok_or(anyhow!("Could not parse ticket"))??,
+        );
+        ensure!(lines.next() == Some(""));
+        ensure!(lines.next() == Some("nearby tickets:"));
+        Ok(Problem { rules, my_ticket })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -51,5 +101,37 @@ mod tests {
         assert_eq!("class", name.as_str());
         assert_eq!(1..=3, range1);
         assert_eq!(5..=7, range2);
+    }
+
+    #[test]
+    fn does_validate_rule() {
+        let r = Rule {
+            name: "asdf".into(),
+            range1: 0..=1,
+            range2: 10..=11,
+        };
+        assert!(r.validates(&0));
+        assert!(r.validates(&10));
+        assert!(!r.validates(&2));
+        assert!(!r.validates(&12));
+    }
+
+    const EXAMPLE: &str = "class: 1-3 or 5-7
+row: 6-11 or 33-44
+seat: 13-40 or 45-50
+
+your ticket:
+7,1,14
+
+nearby tickets:
+7,3,47
+40,4,50
+55,2,20
+38,6,12";
+    #[test]
+    fn can_parse() {
+        let Problem { rules, my_ticket } = EXAMPLE.parse().unwrap();
+        assert_eq!(3, rules.len());
+        assert_eq!(vec![7, 1, 14], my_ticket.0);
     }
 }
