@@ -1,6 +1,7 @@
 use crate::util::split_tuple_2;
 use anyhow::{anyhow, bail, ensure, Error, Result};
 use std::{
+    num::ParseIntError,
     ops::RangeInclusive,
     str::{FromStr, Lines},
 };
@@ -24,6 +25,17 @@ struct Rule {
 impl Rule {
     fn validates(&self, input: &usize) -> bool {
         self.range1.contains(input) || self.range2.contains(input)
+    }
+}
+impl Problem {
+    fn get_tickets<'a>(
+        &self,
+        s: &'a str,
+    ) -> impl Iterator<Item = Result<Ticket, ParseIntError>> + 'a {
+        s.lines()
+            .skip_while(|&l| l != "nearby tickets:")
+            .skip(1)
+            .map(|l| l.parse())
     }
 }
 
@@ -86,6 +98,17 @@ impl FromStr for Problem {
         Ok(Problem { rules, my_ticket })
     }
 }
+impl FromStr for Ticket {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Ticket(
+            s.split(',')
+                .map(|t| t.parse())
+                .collect::<Result<Vec<_>, _>>()?,
+        ))
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -130,8 +153,18 @@ nearby tickets:
 38,6,12";
     #[test]
     fn can_parse() {
-        let Problem { rules, my_ticket } = EXAMPLE.parse().unwrap();
+        let prob = EXAMPLE.parse().unwrap();
+        let Problem { rules, my_ticket } = &prob;
         assert_eq!(3, rules.len());
         assert_eq!(vec![7, 1, 14], my_ticket.0);
+        assert_eq!(
+            vec![
+                vec![7, 3, 47],
+                vec![40, 4, 50],
+                vec![55, 2, 20],
+                vec![38, 6, 12]
+            ],
+            prob.get_tickets(EXAMPLE).map(|r| r.unwrap().0).collect::<Vec<_>>()
+        );
     }
 }
