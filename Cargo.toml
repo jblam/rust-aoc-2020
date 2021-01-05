@@ -8,5 +8,3 @@ edition = "2018"
 
 [dependencies]
 anyhow = "^1.0.37"
-multimap = "^0.8.2"
-itertools = "0.10.0"

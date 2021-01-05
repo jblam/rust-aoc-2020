@@ -16,7 +16,62 @@ pub fn part1(s: &str) -> usize {
         .flatten()
         .sum()
 }
-pub fn part2(s: &str) {
+pub fn part2(s: &str) -> usize {
+    fn flat_dedup<T: PartialEq + std::fmt::Debug>(mut vec: Vec<Vec<&T>>) -> Result<Vec<&T>> {
+        fn transfer<'a, U: PartialEq + std::fmt::Debug>(
+            source: &mut Vec<Vec<&'a U>>,
+            dest: &mut Vec<Option<&'a U>>,
+        ) -> Result<bool> {
+            if let Some((source_idx, dupes)) = source
+                .into_iter()
+                .enumerate()
+                .filter(|(_, v)| v.len() > 1)
+                .next()
+            {
+                dupes.retain(|dupe| !dest.contains(&Some(dupe)));
+                Ok(match dupes.len() {
+                    0 => bail!("Unexpectedly cleared all options from index {}", source_idx),
+                    1 => {
+                        let dest_el = dest
+                            .get_mut(source_idx)
+                            .expect("Somehow the destination doesn't have the source index");
+                        if let Some(_) = dest_el.replace(dupes[0]) {
+                            bail!(
+                                "Dedup is replacing an already-deduped item at index {}",
+                                source_idx
+                            )
+                        }
+                        true
+                    }
+                    _ => false,
+                })
+            } else {
+                Ok(false)
+            }
+        }
+        let mut out: Vec<Option<&T>> = std::iter::repeat_with(|| None).take(vec.len()).collect();
+        for (idx, items) in vec.iter_mut().enumerate() {
+            if items.len() == 1 {
+                out[idx] = Some(items.remove(0));
+            }
+        }
+        let mut cycles = 0;
+        while transfer(&mut vec, &mut out)? {
+            cycles += 1;
+        }
+        out.into_iter()
+            .enumerate()
+            .map(|(idx, el)| {
+                el.ok_or(anyhow!(
+                    "Could not resolve duplicates at index {} after {} cycles; {:?}",
+                    idx,
+                    cycles,
+                    vec[idx],
+                ))
+            })
+            .collect::<Result<Vec<_>>>()
+    }
+
     let prob: Problem = s.parse().unwrap();
     let mut rules_for_position = std::iter::repeat(prob.rules.iter().collect::<Vec<_>>())
         .take(prob.my_ticket.0.len())
@@ -32,8 +87,17 @@ pub fn part2(s: &str) {
             rules_for_field.retain(|&rule| rule.validates(field));
         }
     }
-    dbg!(rules_for_position);
-    todo!("Eliminate duplicates in rules_for_position members")
+    dbg!(&rules_for_position);
+    let rules_for_position = dbg!(flat_dedup(rules_for_position)).unwrap();
+    rules_for_position
+        .into_iter()
+        .enumerate()
+        .filter(|(_idx, rule)| rule.name.starts_with("departure"))
+        .map(|(idx, rule)| {
+            debug_assert!(rule.validates(&prob.my_ticket.0[idx]));
+            prob.my_ticket.0[idx]
+        })
+        .fold(1, |prev, cur| prev * cur)
 }
 
 #[derive(Debug)]
@@ -43,6 +107,7 @@ struct Problem {
     my_ticket: Ticket,
 }
 
+#[derive(PartialEq)]
 struct Rule {
     name: String,
     range1: RangeInclusive<usize>,
@@ -218,6 +283,6 @@ nearby tickets:
     }
     #[test]
     fn gets_example_2() {
-        part2(EXAMPLE)
+        assert_eq!(1, part2(EXAMPLE))
     }
 }
