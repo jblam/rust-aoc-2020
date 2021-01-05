@@ -3,7 +3,9 @@ use std::{collections::HashMap, ops::Sub};
 pub fn part1(init: &[i32]) -> std::option::Option<i32> {
     enumerate(init).skip(2019).next().map(|Number(n)| n)
 }
-pub fn part2(_: &[i32]) {}
+pub fn part2(init: &[i32]) -> Option<i32> {
+    enumerate(init).skip(30000000 - 1).next().map(|Number(n)| n)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Turn(i32);
@@ -36,10 +38,7 @@ impl State {
             .enumerate()
             .map(|(idx, &val)| (val, Turn(idx as i32 + 1)))
             .collect::<HashMap<_, _>>();
-        (
-            State(s),
-            Step(Number(0), Turn(1 + init.len() as i32)),
-        )
+        (State(s), Step(Number(0), Turn(1 + init.len() as i32)))
     }
     fn step(&mut self, Step(num, turn): &Step) -> Step {
         let next_num = if let Some(last_spoken) = self.0.insert(num.0, *turn) {
@@ -64,7 +63,13 @@ mod tests {
     }
     #[test]
     fn can_sequence() {
-        assert_eq!(vec![0, 3, 6, 0, 3, 3, 1, 0, 4, 0], enumerate(&[0, 3, 6]).map(|Number(num)| num).take(10).collect::<Vec<_>>())
+        assert_eq!(
+            vec![0, 3, 6, 0, 3, 3, 1, 0, 4, 0],
+            enumerate(&[0, 3, 6])
+                .map(|Number(num)| num)
+                .take(10)
+                .collect::<Vec<_>>()
+        )
     }
     #[test]
     fn runs_example() {
@@ -74,5 +79,15 @@ mod tests {
         assert_eq!(78, part1(&[2, 3, 1]).unwrap());
         assert_eq!(438, part1(&[3, 2, 1]).unwrap());
         assert_eq!(1836, part1(&[3, 1, 2]).unwrap());
+    }
+
+    #[test]
+    fn hmmmm() {
+        dbg!(enumerate(&[0, 3, 6]).skip(1000000).take(80).map(|Number(n)| n).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn runs_second_example() {
+        assert_eq!(175594, part2(&[0, 3, 6]).unwrap())
     }
 }
