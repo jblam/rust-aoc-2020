@@ -9,11 +9,32 @@ use std::{
 pub fn part1(s: &str) -> usize {
     let prob: Problem = s.parse().unwrap();
     prob.get_tickets(s)
-        .map(|t| prob.get_unvalidatable_fields(t.as_ref().unwrap()).collect::<Vec<_>>())
+        .map(|t| {
+            prob.get_unvalidatable_fields(t.as_ref().unwrap())
+                .collect::<Vec<_>>()
+        })
         .flatten()
         .sum()
 }
-pub fn part2(_: &str) {}
+pub fn part2(s: &str) {
+    let prob: Problem = s.parse().unwrap();
+    let mut rules_for_position = std::iter::repeat(prob.rules.iter().collect::<Vec<_>>())
+        .take(prob.my_ticket.0.len())
+        .collect::<Vec<_>>();
+    let good_tickets = prob
+        .get_tickets(s)
+        .map(|t| t.unwrap())
+        .filter(|t| prob.get_unvalidatable_fields(t).next().is_none());
+    for Ticket(fields) in good_tickets {
+        debug_assert!(fields.len() == rules_for_position.len());
+        for (field, rules_for_field) in fields.iter().zip(rules_for_position.iter_mut()) {
+            debug_assert!(rules_for_field.len() > 0);
+            rules_for_field.retain(|&rule| rule.validates(field));
+        }
+    }
+    dbg!(rules_for_position);
+    todo!("Eliminate duplicates in rules_for_position members")
+}
 
 #[derive(Debug)]
 struct Ticket(Vec<usize>);
@@ -125,6 +146,11 @@ impl FromStr for Ticket {
         ))
     }
 }
+impl std::fmt::Debug for Rule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {:?} or {:?}", self.name, self.range1, self.range2)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -189,5 +215,9 @@ nearby tickets:
     #[test]
     fn gets_example_1() {
         assert_eq!(71, part1(EXAMPLE))
+    }
+    #[test]
+    fn gets_example_2() {
+        part2(EXAMPLE)
     }
 }
