@@ -7,11 +7,10 @@ pub fn part1(s: &str) -> i32 {
     id.0 * (departure.0 - current.0)
 }
 pub fn part2(s: &str) -> i32 {
-    let mut ids = parse(s)
+    let ids = parse(s)
         .1
-        .map(|(offset, BusId(id))| (offset as i32, id, 0i32))
-        .collect::<Vec<_>>();
-    todo!()
+        .map(|(offset, BusId(id))| Equation { divisor: (offset as i32) % id, modulus: id });
+    Equation::solve_set(ids)
 }
 
 /*
@@ -55,12 +54,20 @@ pub fn part2(s: &str) -> i32 {
 */
 
 fn bezout_identity(a: i32, b: i32) -> (i32, i32) {
-    if a == 4 && b == 3 {
-        (1, -1)
-    } else if a == 5 && b == 12 {
-        (5, -2)
-    } else {
-        todo!("TDD lol ({}, {})", a, b)
+    let mut r = (a, b);
+    let mut s = (1, 0);
+    let mut t = (0, 1);
+    fn mutate(x: &mut (i32, i32), quotient: i32) {
+        *x = (x.1, x.0 - quotient * x.1);
+    }
+    loop {
+        if r.1 == 0 {
+            return (s.0, t.0)
+        }
+        let q = r.0 / r.1;
+        mutate(&mut r, q);
+        mutate(&mut s, q);
+        mutate(&mut t, q);
     }
 }
 
@@ -199,6 +206,16 @@ mod tests {
     }
 
     #[test]
+    fn gets_bezout() {
+        fn assert_identity(n1: i32, n2: i32) {
+            let (m1, m2) = bezout_identity(n1, n2);
+            assert_eq!(1, m1 * n1 + m2 * n2)
+        }
+        assert_identity(5, 12);
+        assert_identity(3, 4);
+    }
+
+    #[test]
     fn finds_wikipedia_example() {
         let u1 = Equation {
             divisor: 0,
@@ -236,5 +253,10 @@ mod tests {
             },
         ];
         assert_eq!(39, Equation::solve_set(eqs.iter().copied()))
+    }
+
+    #[test]
+    fn finds_example_2() {
+        assert_eq!(1068781, part2(EXAMPLE))
     }
 }
