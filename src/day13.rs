@@ -7,15 +7,116 @@ pub fn part1(s: &str) -> i32 {
     id.0 * (departure.0 - current.0)
 }
 pub fn part2(s: &str) -> i32 {
-    let ids = parse(s).1.collect::<Vec<_>>();
-    let (_, BusId(first)) = ids[0];
-    std::iter::successors(Some(0), |&i| Some(i + first))
-        .filter(|&t| {
-            ids.iter()
-                .all(|&(idx, id)| Timestamp(t).is_valid_reference(idx, id))
-        })
-        .next()
-        .unwrap()
+    let mut ids = parse(s)
+        .1
+        .map(|(offset, BusId(id))| (offset as i32, id, 0i32))
+        .collect::<Vec<_>>();
+    todo!()
+}
+
+/*
+   0: 13,
+   7: 37,
+   13: 401
+   27: 17
+   32: 19
+   36: 23
+   42: 29
+   44: 613
+   85: 41
+
+   (x + k) % v = 0
+   x % v + k % v = 0
+
+   x == ki' (mod vi); ki' = ki % vi
+
+
+   ----------------------
+
+   0: 7
+   1: 13
+   4: 59
+   6: 31
+   7: 19
+
+   x == 0 (mod 7)
+   x == 1 (mod 13)
+     (2) * 7 + (-1) * 13 = 1
+     x = 0 * -1 * 13 + 1 * 2 * 7
+       = 14
+
+   add x == 14 (mod 7*13→91)
+
+   x == 7 (mod 19)
+   x == 6 (mod 31)
+
+
+   ==> 1068781
+*/
+
+fn bezout_identity(a: i32, b: i32) -> (i32, i32) {
+    if a == 4 && b == 3 {
+        (1, -1)
+    } else if a == 5 && b == 12 {
+        (5, -2)
+    } else {
+        todo!("TDD lol ({}, {})", a, b)
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Equation {
+    divisor: i32,
+    modulus: i32,
+}
+impl Equation {
+    fn new(divisor: i32, modulus: i32) -> Equation {
+        Equation {
+            divisor: if divisor < 0 {
+                divisor + modulus
+            } else {
+                divisor
+            },
+            modulus,
+        }
+    }
+    fn reduce(u: &Equation, v: &Equation) -> Equation {
+        let &Equation {
+            divisor: a1,
+            modulus: n1,
+        } = u;
+        let &Equation {
+            divisor: a2,
+            modulus: n2,
+        } = v;
+        let (m1, m2) = bezout_identity(n1, n2);
+        debug_assert!(m1 * n1 + m2 * n2 == 1);
+        let x = a1 * m2 * n2 + a2 * m1 * n1;
+        Equation::new(x, n1 * n2)
+    }
+    fn solve_set(set: impl Iterator<Item = Equation>) -> i32 {
+
+        set.fold(None, |prev, cur| {
+            if let Some(prev) = prev {
+                Some(Equation::reduce(&cur, &prev))
+            } else {
+                Some(cur.clone())
+            }
+        }).unwrap().divisor
+    }
+    fn is_satisfied(&self, x: i32) -> bool {
+        x % self.modulus == self.divisor
+    }
+}
+impl std::fmt::Display for Equation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "x ≡ {} (mod {})", self.divisor, self.modulus)
+    }
+}
+impl std::fmt::Debug for Equation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "x ≡ {} (mod {})", self.divisor, self.modulus)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
@@ -98,18 +199,42 @@ mod tests {
     }
 
     #[test]
-    fn finds_valid_example() {
-        let ids = parse(EXAMPLE).1.collect::<Vec<_>>();
-        let (_, BusId(first)) = ids[0];
-        assert_eq!(
-            std::iter::successors(Some(0), |&i| Some(i + first))
-                .filter(|&t| {
-                    ids.iter()
-                        .all(|&(idx, id)| Timestamp(t).is_valid_reference(idx, id))
-                })
-                .next()
-                .unwrap(),
-            1068781
-        )
+    fn finds_wikipedia_example() {
+        let u1 = Equation {
+            divisor: 0,
+            modulus: 3,
+        };
+        let u2 = Equation {
+            divisor: 3,
+            modulus: 4,
+        };
+        let u3 = Equation {
+            divisor: 4,
+            modulus: 5,
+        };
+        let u4 = dbg!(Equation::reduce(&u1, &u2));
+        let u5 = dbg!(Equation::reduce(&u3, &u4));
+        assert!(u1.is_satisfied(u4.divisor));
+        assert!(u2.is_satisfied(u4.divisor));
+        assert!(u3.is_satisfied(u5.divisor));
+        assert_eq!(39, u5.divisor)
+    }
+    #[test]
+    fn solves_wikipedia_example() {
+        let eqs = [
+            Equation {
+                divisor: 0,
+                modulus: 3,
+            },
+            Equation {
+                divisor: 3,
+                modulus: 4,
+            },
+            Equation {
+                divisor: 4,
+                modulus: 5,
+            },
+        ];
+        assert_eq!(39, Equation::solve_set(eqs.iter().copied()))
     }
 }
