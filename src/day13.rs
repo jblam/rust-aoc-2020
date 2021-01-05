@@ -1,4 +1,4 @@
-pub fn part1(s: &str) -> i32 {
+pub fn part1(s: &str) -> i128 {
     let (current, ids) = parse(s);
     let (id, departure) = ids
         .map(|(_, i)| (i, i.next_departure(current)))
@@ -6,10 +6,11 @@ pub fn part1(s: &str) -> i32 {
         .unwrap();
     id.0 * (departure.0 - current.0)
 }
-pub fn part2(s: &str) -> i32 {
-    let ids = parse(s)
-        .1
-        .map(|(offset, BusId(id))| Equation { divisor: (offset as i32) % id, modulus: id });
+pub fn part2(s: &str) -> i128 {
+    let ids = parse(s).1.map(|(offset, BusId(id))| Equation {
+        divisor: -(offset as i128) % id,
+        modulus: id,
+    });
     Equation::solve_set(ids)
 }
 
@@ -53,16 +54,16 @@ pub fn part2(s: &str) -> i32 {
    ==> 1068781
 */
 
-fn bezout_identity(a: i32, b: i32) -> (i32, i32) {
+fn bezout_identity(a: i128, b: i128) -> (i128, i128) {
     let mut r = (a, b);
     let mut s = (1, 0);
     let mut t = (0, 1);
-    fn mutate(x: &mut (i32, i32), quotient: i32) {
+    fn mutate(x: &mut (i128, i128), quotient: i128) {
         *x = (x.1, x.0 - quotient * x.1);
     }
     loop {
         if r.1 == 0 {
-            return (s.0, t.0)
+            return (s.0, t.0);
         }
         let q = r.0 / r.1;
         mutate(&mut r, q);
@@ -73,11 +74,12 @@ fn bezout_identity(a: i32, b: i32) -> (i32, i32) {
 
 #[derive(Clone, Copy)]
 struct Equation {
-    divisor: i32,
-    modulus: i32,
+    divisor: i128,
+    modulus: i128,
 }
 impl Equation {
-    fn new(divisor: i32, modulus: i32) -> Equation {
+    fn new(divisor: i128, modulus: i128) -> Equation {
+        let divisor = divisor % modulus;
         Equation {
             divisor: if divisor < 0 {
                 divisor + modulus
@@ -98,20 +100,31 @@ impl Equation {
         } = v;
         let (m1, m2) = bezout_identity(n1, n2);
         debug_assert!(m1 * n1 + m2 * n2 == 1);
-        let x = a1 * m2 * n2 + a2 * m1 * n1;
-        Equation::new(x, n1 * n2)
+        let x = a1
+            .checked_mul(m2)
+            .and_then(|u| u.checked_mul(n2))
+            .unwrap_or_else(|| panic!("Bad with {}, {}, {}", a1, m2, n2))
+            + a2.checked_mul(m1)
+                .and_then(|u| u.checked_mul(n1))
+                .unwrap_or_else(|| panic!("Bad with {} + {} * {} * {}", a1 * m2 * n2, a2, m1, n1));
+        Equation::new(
+            x,
+            n1.checked_mul(n2)
+                .unwrap_or_else(|| panic!("Bad with {}, {}", n1, n2)),
+        )
     }
-    fn solve_set(set: impl Iterator<Item = Equation>) -> i32 {
-
+    fn solve_set(set: impl Iterator<Item = Equation>) -> i128 {
         set.fold(None, |prev, cur| {
             if let Some(prev) = prev {
-                Some(Equation::reduce(&cur, &prev))
+                Some(dbg!(Equation::reduce(&cur, &prev)))
             } else {
-                Some(cur.clone())
+                Some(dbg!(cur.clone()))
             }
-        }).unwrap().divisor
+        })
+        .unwrap()
+        .divisor
     }
-    fn is_satisfied(&self, x: i32) -> bool {
+    fn is_satisfied(&self, x: i128) -> bool {
         x % self.modulus == self.divisor
     }
 }
@@ -127,13 +140,13 @@ impl std::fmt::Debug for Equation {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-struct Timestamp(i32);
+struct Timestamp(i128);
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct BusId(i32);
+struct BusId(i128);
 
 fn parse(s: &str) -> (Timestamp, impl Iterator<Item = (usize, BusId)> + '_) {
     let mut lines = s.lines();
-    let timestamp = Timestamp(lines.next().unwrap().parse::<i32>().unwrap());
+    let timestamp = Timestamp(lines.next().unwrap().parse::<i128>().unwrap());
     let ids = lines
         .next()
         .unwrap()
@@ -157,7 +170,7 @@ impl BusId {
 }
 impl Timestamp {
     fn is_valid_reference(&self, index: usize, id: BusId) -> bool {
-        let offset = self.0 + index as i32;
+        let offset = self.0 + index as i128;
         offset % id.0 == 0
     }
 }
@@ -207,7 +220,7 @@ mod tests {
 
     #[test]
     fn gets_bezout() {
-        fn assert_identity(n1: i32, n2: i32) {
+        fn assert_identity(n1: i128, n2: i128) {
             let (m1, m2) = bezout_identity(n1, n2);
             assert_eq!(1, m1 * n1 + m2 * n2)
         }
@@ -253,6 +266,19 @@ mod tests {
             },
         ];
         assert_eq!(39, Equation::solve_set(eqs.iter().copied()))
+    }
+
+    #[test]
+    fn finds_toy_example() {
+        // considering the wikipedia example
+        // x ≡ 0 (mod 3)
+        // x ≡ 3 (mod 4)
+        // x ≡ 4 (mod 5)
+        const WIKI_EXAMPLE: &str = "0\n3,x,x,4,5";
+        assert_eq!(39, part2(WIKI_EXAMPLE));
+        assert_eq!(39 % 3, 0);
+        assert_eq!(39 % 4, 3);
+        assert_eq!(39 % 5, 4);
     }
 
     #[test]
