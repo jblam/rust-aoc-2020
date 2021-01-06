@@ -70,6 +70,22 @@ My understanding is that Rust "needs" `::<>` to make parsing easier? I'd be more
 
 Also, as a C# fanboy, I find return type variance a bit unsettling; I'm never really sure if I even _want_ to write `let x = some_str.parse()` rather than `let x = int32::from_str(some_str)`.
 
+### Dead code warnings
+
+I think I can understand the rationale, but my typical experience feels like
+
+> **Rustc:** My dude, that code you just spent 20 minutes writing is unused. [Compile warning]
+>
+> **Rustc:** Hey just letting you know you wrote another unused method. [Compile warning]
+>
+> **Rustc:** FYI you just imported a submodule full of unused things. Here's a list of all those things. [12 Compile warnings]
+>
+> **me:** *finally implements enough that I can call something from `main`*
+>
+> **Rustc:** Oh hey you *are* using that! Oopsie!
+
+I don't like looking at bad compile warnings.
+
 ## On VS Code
 
 Being a C# fanboy goes very well with being a Visual Studio (purple) fanboy. Visual Studio Code (blue) always felt a bit "cheap" in ways that are hard to describe. Partly, looking at Chromium trying to render text on Windows, I suppose?
