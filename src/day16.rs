@@ -17,37 +17,35 @@ pub fn part1(s: &str) -> usize {
         .sum()
 }
 pub fn part2(s: &str) -> usize {
+    /// Takes a vector of alternative-options, and returns a vector containing the single solution
     fn flat_dedup<T: PartialEq + std::fmt::Debug>(mut vec: Vec<Vec<&T>>) -> Result<Vec<&T>> {
+        /// Deduplicates options from the source multivec if they are unique in the dest single-vec,
+        /// returning `true` if at least one element could be transferred
         fn transfer<'a, U: PartialEq + std::fmt::Debug>(
             source: &mut Vec<Vec<&'a U>>,
             dest: &mut Vec<Option<&'a U>>,
         ) -> Result<bool> {
-            if let Some((source_idx, dupes)) = source
-                .into_iter()
-                .enumerate()
-                .filter(|(_, v)| v.len() > 1)
-                .next()
-            {
-                dupes.retain(|dupe| !dest.contains(&Some(dupe)));
-                Ok(match dupes.len() {
-                    0 => bail!("Unexpectedly cleared all options from index {}", source_idx),
-                    1 => {
-                        let dest_el = dest
-                            .get_mut(source_idx)
-                            .expect("Somehow the destination doesn't have the source index");
-                        if let Some(_) = dest_el.replace(dupes[0]) {
-                            bail!(
-                                "Dedup is replacing an already-deduped item at index {}",
-                                source_idx
-                            )
-                        }
-                        true
-                    }
-                    _ => false,
-                })
-            } else {
-                Ok(false)
+            for unavailable in dest.iter().filter_map(|&i| i) {
+                for options in source.iter_mut() {
+                    options.retain(|&el| el != unavailable);
+                }
             }
+            let mut did_thing = false;
+            for (idx, single) in source.iter_mut().enumerate().filter(|(_, v)| v.len() == 1) {
+                let dest_cell = dest.get_mut(idx).unwrap();
+                let mut val = single.remove(0);
+                if let Some(existing) = dest_cell.replace(&mut val) {
+                    bail!(
+                        "Unexpectedly replaced an existing unique solution at index {} ({:?}→{:?})",
+                        idx,
+                        existing,
+                        dest_cell
+                    );
+                } else {
+                    did_thing = true;
+                }
+            }
+            Ok(did_thing)
         }
         let mut out: Vec<Option<&T>> = std::iter::repeat_with(|| None).take(vec.len()).collect();
         for (idx, items) in vec.iter_mut().enumerate() {
